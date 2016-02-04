@@ -120,14 +120,18 @@ refreshGraph(self, handles)
 
 % --- Executes on button press in btnAddLine.
 function btnAddLine_Callback(self, ~, handles)
-handles.variables(end+1, :) = 3*eye(1, 7);
-reset(self, handles)
+handles.variables(end+1, :) = handles.variables(end, :);
+refreshGraph(self, handles);
 
 % --- Executes on button press in btnUndo.
 function btnUndo_Callback(self, ~, handles)
 handles.variables(end, :) = [];
 if size(handles.variables, 1) < 1
     handles.variables(end+1, :) = 3*eye(1,7);
+end
+for ii=2:7
+    handles.(strcat('sld', char(ii+63))).Value = handles.variables(end, ii);
+    handles.(strcat('txt', char(ii+63))).String = handles.variables(end, ii);
 end
 handles.popDown.Value = handles.variables(end, 1);
 hideAndShowFeatures(self, handles)
@@ -136,7 +140,7 @@ hideAndShowFeatures(self, handles)
 function btnClear_Callback(self, ~, handles)
 handles.popDown.Value = 3;
 handles.variables = 3*eye(1,7);
-hideAndShowFeatures(self, handles)
+reset(self, handles)
 
 
 
