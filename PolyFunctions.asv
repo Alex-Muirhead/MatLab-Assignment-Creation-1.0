@@ -206,18 +206,19 @@ end
 equation = '';
 for ii = 1:handles.variables
     coeff = handles.variables(end, ii+1);
-    preamble = '%.3g';
-    if size(equation, 1) > 0
-        preamble = [' ', char(44-sign(coeff)), preamble];
+    preamble = ' %.3g';
+    if size(equation, 1) ~= 0
+        preamble = strcat(' ', char(44-sign(coeff)), preamble);
     end
     if degree-ii > 0
-        preamble = [preamble, 'x'];
+        preamble = strcat(preamble, 'x');
     end
     if degree-ii > 1
-        preamble = [preamble, '^', num2str(degree-ii)];
+        preamble = strcat(preamble, '^', num2str(degree-ii));
     end
+    preamble
     if coeff ~= 0
-        equation = [equation, sprintf(preamble, abs(coeff))];
+        equation = strcat(equation, sprintf(preamble, abs(coeff)));
     end
 end
 xlabel(handles.displayGraph, texlabel(equation));
