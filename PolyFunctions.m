@@ -22,7 +22,7 @@ function varargout = PolyFunctions(varargin)
 
 % Edit the above text to modify the response to help PolyFunctions
 
-% Last Modified by GUIDE v2.5 04-Feb-2016 17:51:44
+% Last Modified by GUIDE v2.5 04-Feb-2016 19:58:00
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -52,13 +52,13 @@ function PolyFunctions_OpeningFcn(self, ~, handles, varargin)
 handles.output = self;
 handles.variables = 3*eye(1,7);
 guidata(self, handles);
-% Attempt at dynamic update on slider A, enable at own wish
-% addlistener(handles.sldA, 'Value', 'PostSet', @(s, e) sld_Callback(e.AffectedObject, 0, handles))
+addlistener([handles.sldA, handles.sldB, handles.sldC,...
+             handles.sldD, handles.sldE, handles.sldF],...
+             'Value', 'PostSet', @(s, e) sld_Callback(e.AffectedObject));
 
 % --- Outputs from this function are returned to the command line.
 function varargout = PolyFunctions_OutputFcn(~, ~, handles)
 varargout{1} = handles.output;
-
 
 
 
@@ -91,11 +91,16 @@ hideAndShowFeatures(self, handles)
 
 % --- Executes on button press in btnReset.
 function btnReset_Callback(self, ~, handles)
-set(handles.popDown, 'Value', 3)
 reset(self, handles)
 
 % --- Executes on slider movement.
-function sld_Callback(self, ~, handles)
+function sld_Callback(varargin)
+self = varargin{1};
+if nargin == 1
+    handles = guidata(self);
+else
+    handles = varargin{end};
+end
 value = round(self.Value, 2);
 family = self.Tag(end);
 handles.(horzcat('txt', family)).String = value;
@@ -138,7 +143,6 @@ hideAndShowFeatures(self, handles)
 
 % --- Executes on button press in btnClear.
 function btnClear_Callback(self, ~, handles)
-handles.popDown.Value = 3;
 handles.variables = 3*eye(1,7);
 reset(self, handles)
 
@@ -191,7 +195,6 @@ hideAndShowFeatures(self, handles)
 function refreshGraph(self, handles)
 guidata(self, handles);
 cla(handles.displayGraph)
-axis(handles.displayGraph, [-10 10 -10 10])
 x = linspace(-10,10,1000);
 hold on;
 for n = 1:size(handles.variables, 1)
@@ -209,6 +212,7 @@ for ii = 1:handles.variables
     preamble = '%.3g';
     if size(equation, 1) > 0
         preamble = [' ', char(44-sign(coeff)), preamble];
+        coeff = abs(coeff);
     end
     if degree-ii > 0
         preamble = [preamble, 'x'];
@@ -217,9 +221,10 @@ for ii = 1:handles.variables
         preamble = [preamble, '^', num2str(degree-ii)];
     end
     if coeff ~= 0
-        equation = [equation, sprintf(preamble, abs(coeff))];
+        equation = [equation, sprintf(preamble, coeff)];
     end
 end
 xlabel(handles.displayGraph, texlabel(equation));
 set(handles.displayGraph, 'XMinorGrid', 'on', 'YMinorGrid', 'on', 'YGrid', 'on', 'XGrid', 'on', 'XMinorTick','on','YMinorTick','on', 'XTick', [-10;0;10], 'YTick', [-10;0;10])
+axis(handles.displayGraph, [-10 10 -10 10])
 hold off;

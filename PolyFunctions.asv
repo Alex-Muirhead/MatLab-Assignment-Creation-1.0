@@ -22,7 +22,7 @@ function varargout = PolyFunctions(varargin)
 
 % Edit the above text to modify the response to help PolyFunctions
 
-% Last Modified by GUIDE v2.5 04-Feb-2016 17:51:44
+% Last Modified by GUIDE v2.5 04-Feb-2016 19:58:00
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -52,14 +52,18 @@ function PolyFunctions_OpeningFcn(self, ~, handles, varargin)
 handles.output = self;
 handles.variables = 3*eye(1,7);
 guidata(self, handles);
+disp(handles)
 % Attempt at dynamic update on slider A, enable at own wish
-% addlistener(handles.sldA, 'Value', 'PostSet', @(s, e) sld_Callback(e.AffectedObject, 0, handles))
+addlistener(handles.sldA, 'Value', 'PostSet', @(s, e) test(e.AffectedObject, 0, handles));
 
 % --- Outputs from this function are returned to the command line.
 function varargout = PolyFunctions_OutputFcn(~, ~, handles)
 varargout{1} = handles.output;
 
-
+function test(self, ~, handles)
+    guidata(self, handles);
+    disp(handle)
+    sld_Callback(self, 0, handles);
 
 
 
@@ -91,7 +95,6 @@ hideAndShowFeatures(self, handles)
 
 % --- Executes on button press in btnReset.
 function btnReset_Callback(self, ~, handles)
-set(handles.popDown, 'Value', 3)
 reset(self, handles)
 
 % --- Executes on slider movement.
@@ -138,7 +141,6 @@ hideAndShowFeatures(self, handles)
 
 % --- Executes on button press in btnClear.
 function btnClear_Callback(self, ~, handles)
-handles.popDown.Value = 3;
 handles.variables = 3*eye(1,7);
 reset(self, handles)
 
@@ -191,34 +193,34 @@ hideAndShowFeatures(self, handles)
 function refreshGraph(self, handles)
 guidata(self, handles);
 cla(handles.displayGraph)
-axis(handles.displayGraph, [-10 10 -10 10])
 x = linspace(-10,10,1000);
 hold on;
 for n = 1:size(handles.variables, 1)
     degree = handles.variables(n, 1);
     y = polyval(handles.variables(n, 2:degree+1), x);
     handles.displayGraph.ColorOrderIndex = mod(n-1, 7)+1;
-    plot(x, y);
+    plot(handles.displayGraph, x, y);
     pois = POI(handles.variables(n, 2:degree+1));
     handles.displayGraph.ColorOrderIndex = mod(n-1, 7)+1;
-    plot(pois(1,:), pois(2,:), 'o');
+    %plot(pois(1,:), pois(2,:), 'o');
+    axis(handles.displayGraph, [-10 10 -10 10])
 end
 equation = '';
 for ii = 1:handles.variables
     coeff = handles.variables(end, ii+1);
-    preamble = ' %.3g';
-    if size(equation, 1) ~= 0
-        preamble = strcat(' ', char(44-sign(coeff)), preamble);
+    preamble = '%.3g';
+    if size(equation, 1) > 0
+        preamble = [' ', char(44-sign(coeff)), preamble];
+        coeff = abs(coeff);
     end
     if degree-ii > 0
-        preamble = strcat(preamble, 'x');
+        preamble = [preamble, 'x'];
     end
     if degree-ii > 1
-        preamble = strcat(preamble, '^', num2str(degree-ii));
+        preamble = [preamble, '^', num2str(degree-ii)];
     end
-    preamble
     if coeff ~= 0
-        equation = strcat(equation, sprintf(preamble, abs(coeff)));
+        equation = [equation, sprintf(preamble, coeff)];
     end
 end
 xlabel(handles.displayGraph, texlabel(equation));
