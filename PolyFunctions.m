@@ -22,7 +22,7 @@ function varargout = PolyFunctions(varargin)
 
 % Edit the above text to modify the response to help PolyFunctions
 
-% Last Modified by GUIDE v2.5 05-Feb-2016 17:17:47
+% Last Modified by GUIDE v2.5 06-Feb-2016 15:35:15
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -48,28 +48,29 @@ end
 
 % --- Executes just before PolyFunctions is made visible.
 function PolyFunctions_OpeningFcn(self, ~, handles, varargin)
-
+digits(3);
 handles.output = self;
 handles.variables = 3*eye(1, 7);
 handles.popDown.Value = 3;
 handles.zoom = [10, 20];
 handles.last_click = zeros(1, 3);
 handles.axes_shift = zeros(1, 2);
-set(handles.displayGraph, {'XLimMode', 'YLimMode'}, {'manual','manual'});
+set(handles.displayGraph, {'XMinorGrid', 'YMinorGrid', 'XGrid', 'YGrid',...
+                           'XMinorTick', 'YMinorTick', 'XLimMode', 'YLimMode'},...
+                          {'on','on','on','on','on','on','manual','manual'});
 guidata(self, handles);
 addlistener([handles.sldA, handles.sldB, handles.sldC,...
              handles.sldD, handles.sldE, handles.sldF],...
              'Value', 'PostSet', @(s, e) sld_Callback(e.AffectedObject));
 addlistener(handles.sldZ, 'Value', 'PostSet', @(s, e) zoom_Callback(e.AffectedObject));
-warning('off', 'MATLAB:deblank:NonStringInput');
 
 % --- Outputs from this function are returned to the command line.
 function varargout = PolyFunctions_OutputFcn(self, ~, handles)
 varargout{1} = handles.output;
-hideAndShowFeatures(self, handles);
-set(gcf, 'WindowButtonUpFcn', @axs_btnUp)
-set(gcf, 'WindowButtonDownFcn', @axs_btnDown)
-set(gcf, 'WindowButtonMotionFcn', @axs_btnMove)
+refreshGUI(self, handles);
+set(gcf, 'WindowButtonUpFcn', @mouse_Callback)
+set(gcf, 'WindowButtonDownFcn', @mouse_Callback)
+set(gcf, 'WindowButtonMotionFcn', @mouse_Callback)
 
 
 
@@ -114,18 +115,58 @@ refreshGraph(self, handles)
 function txt_Callback(self, ~, handles)
 family = self.Tag(end);
 parent_sld = handles.(['sld', family]);
-value = str2double(get(self, 'String'));
-if value > 10
-    set(parent_sld, 'Value', 10.0)
-    set(self, 'String', 10.0)
-elseif value < -10
-    set(parent_sld, 'Value', -10.0)
-    set(self, 'String', -10.0)
+v = str2double(self.String);
+if isfloat(v) && isfinite(v)
+    value = min(abs(v), 10)*sign(v);
+    self.String = value;
+    parent_sld.Value = value;
+    handles.variables(end, uint8(family)-63) = round(value, 2);
 else
-    set(parent_sld, 'Value', value)
+    self.String = round(parent_sld.Value, 2);
 end
-handles.variables(end, uint8(family)-63) = round(value, 2);
 refreshGraph(self, handles)
+
+% --- Executes on button press in btnAddLine
+function btnAddLine_Callback(self, ~, handles)
+handles.variables(end+1, :) = handles.variables(end, :);
+refreshGraph(self, handles);
+
+% --- Executes on button press in btnUndo
+function btnUndo_Callback(self, ~, handles)
+handles.variables(end, :) = [];
+if size(handles.variables, 1) < 1
+    handles.variables(end+1, :) = 3*eye(1,7);
+end
+for ii=2:7
+    handles.(['sld', char(ii+63)]).Value = handles.variables(end, ii);
+    handles.(['txt', char(ii+63)]).String = handles.variables(end, ii);
+end
+handles.popDown.Value = handles.variables(end, 1);
+refreshGUI(self, handles)
+
+% --- Executes on mouse functions
+function mouse_Callback(self, eventData)
+handles = guidata(self);
+ca = handles.displayGraph;
+p = get(ca, 'CurrentPoint');
+valid = inpolygon(p(1,1), p(2,2), ca.XLim, ca.YLim);
+switch eventData.EventName
+    case 'WindowMousePress'
+        if valid
+            handles.last_click = [p(1, 1:2), 1];
+        end
+    case 'WindowMouseRelease'
+        handles.last_click(3) = 0;
+    case 'WindowMouseMotion'
+        if valid && handles.last_click(3)
+            diff = handles.last_click(1:2) - p(1, 1:2);
+            handles.axes_shift = handles.axes_shift + diff;
+            handles.txtZ.Style = 'pushButton';
+            handles.txtZ.String = 'Home';
+            refreshGraph(self, handles);
+        end
+end
+guidata(self, handles);
 
 % --- Executes on zoom slider movement
 function zoom_Callback(varargin)
@@ -153,73 +194,12 @@ zoom_Callback(self, handles)
 
 
 
-% --- Executes on button press in btnAddLine.
-function btnAddLine_Callback(self, ~, handles)
-handles.variables(end+1, :) = handles.variables(end, :);
-refreshGraph(self, handles);
-
-% --- Executes on selection change in popDown.
-function popDown_Callback(self, ~, handles)
-hideAndShowFeatures(self, handles)
-
-% --- Executes on button press in btnReset.
-function btnReset_Callback(self, ~, handles)
-reset(self, handles)
-
-% --- Executes on button press in btnClear.
-function btnClear_Callback(self, ~, handles)
-handles.variables = 3*eye(1,7);
-reset(self, handles)
-
-% --- Executes on button press in btnUndo.
-function btnUndo_Callback(self, ~, handles)
-handles.variables(end, :) = [];
-if size(handles.variables, 1) < 1
-    handles.variables(end+1, :) = 3*eye(1,7);
-end
-for ii=2:7
-    handles.(['sld', char(ii+63)]).Value = handles.variables(end, ii);
-    handles.(['txt', char(ii+63)]).String = handles.variables(end, ii);
-end
-handles.popDown.Value = handles.variables(end, 1);
-hideAndShowFeatures(self, handles)
-
-function axs_btnUp(~, ~)
-ax = gca;
-handles = guidata(ax);
-handles.last_click(3) = 0;
-guidata(ax, handles)
-
-function axs_btnDown(~, ~)
-ax = gca;
-handles = guidata(ax);
-p = get(ax, 'CurrentPoint');
-Lim = [handles.displayGraph.XLim; handles.displayGraph.YLim];
-if inpolygon(p(1,1),p(1,2),Lim(1,:),Lim(2,:))
-    handles.last_click = [p(1, 1:2), 1];
-    guidata(ax, handles);
-end
-
-function axs_btnMove(~, ~)
-ax = gca;
-handles = guidata(ax);
-p = get(ax, 'CurrentPoint');
-Lim = [handles.displayGraph.XLim; handles.displayGraph.YLim];
-if inpolygon(p(1,1),p(1,2),Lim(1,:),Lim(2,:)) && handles.last_click(3)
-    diff = handles.last_click(1:2) - p(1, 1:2);
-    handles.axes_shift = handles.axes_shift + diff;
-    handles.txtZ.Style = 'pushButton';
-    handles.txtZ.String = 'Home';
-    refreshGraph(ax, handles);
-end
-
-
-
 
 function coords = POI(coeff)
 % Maintain original parameters
 org_coeff = coeff;
-coords = [0; polyval(org_coeff,0)];
+coeff = polyder(coeff);
+coords = zeros(2,0);
 % Initialize loop through derivatives and consequential roots
 while ~all(coeff == 0)
     x = roots(coeff)';
@@ -232,81 +212,100 @@ while ~all(coeff == 0)
     coeff = polyder(coeff);
 end
 
-function hideAndShowFeatures(~, handles)
+
+% --- REFRESH SLIDERS
+
+function refreshGUI(self, handles)
 types = {'txt', 'sld', 'lbl'};
-bool = 'on';
-degree = handles.popDown.Value;
-handles.variables(end, 1) = degree;
-handles.variables(end, degree+2:end) = 0;
+bool = {'on', 'off'};
+reset = 1;
+switch self.Tag
+    case 'btnClear'
+        handles.variables = 3*eye(1,7);
+    case 'btnReset'
+        handles.variables(end, :) = 3*eye(1,7);
+    otherwise
+        reset = 0;
+end
+switch self.Tag
+    case {'btnClear', 'btnReset'}
+        degree = 3;
+        handles.popDown.Value = 3;
+        zoom_Home(self, handles);
+        handles = guidata(self);
+    otherwise
+        degree = handles.popDown.Value;
+        handles.variables(end, 1) = degree;
+        handles.variables(end, degree+2:end) = 0;
+end
 for ii = 1:6
-    if ii > handles.popDown.Value
-        bool = 'off';
+    if ii > degree || reset
         handles.(['txt', char(64+ii)]).String = '0';
         handles.(['sld', char(64+ii)]).Value = 0;
     end
+    flag = char(bool((ii > degree) + 1));
     for jj = 1:length(types)
-        handles.([types{jj}, char(64+ii)]).Enable = bool;
+        set(handles.([types{jj}, char(64+ii)]), {'Enable', 'Visible'},...
+                                                { flag,     flag});
     end
 end
 refreshGraph(handles.popDown, handles)
 
-function reset(self, handles)
-for ii = 1:6
-    handles.(['txt', char(64+ii)]).String = 0;
-    handles.(['sld', char(64+ii)]).Value  = 0;
-end
-handles.variables(end, :) = 3*eye(1,7);
-handles.popDown.Value = 3;
-hideAndShowFeatures(self, handles)
+
+% --- REFRESH GRAPH ---
 
 function refreshGraph(self, handles)
 guidata(self, handles);
-cla(handles.displayGraph)
+ca = handles.displayGraph;
+cla(ca)
 % Resize and move the focus of the graph according to handles.zoom(1) and
 % handles.axes_shift respectively
-axis(handles.displayGraph, reshape([handles.axes_shift;handles.axes_shift],1,4)+[-1 1 -1 1]*handles.zoom(1))
+axis(ca, reshape([1 1]'*handles.axes_shift,1,4)+[-1 1 -1 1]*handles.zoom(1))
 % Draw the function along the limits of the x-axis to reduce computational
 % strain yet allow for full visual of function
-x = linspace(handles.displayGraph.XLim(1),handles.displayGraph.XLim(2),1000);
+x = linspace(ca.XLim(1),ca.XLim(2),1000);
 hold on;
-for n = 1:size(handles.variables, 1)
-    degree = handles.variables(n, 1);
-    y = polyval(handles.variables(n, 2:degree+1), x);
-    handles.displayGraph.ColorOrderIndex = mod(n-1, 7)+1;
+plot(ca.XLim, [0 0], 'k--', [0 0], ca.YLim, 'k--')
+coeff = handles.variables;
+for ii = 1:size(handles.variables, 1)
+    degree = coeff(ii, 1);
+    y = polyval(coeff(ii, 2:degree+1), x);
+    ca.ColorOrderIndex = mod(ii-1, 7)+1;
     plot(x, y);
-    pois = POI(handles.variables(n, 2:degree+1));
-    handles.displayGraph.ColorOrderIndex = mod(n-1, 7)+1;
-    plot(pois(1,:), pois(2,:), 'o');
-end
-equation = 'f(x) =';
-for ii = 1:degree
-    dd = degree-ii;
-    coeff = handles.variables(end, ii+1);
-    preamble = ' %.3g';
-    if size(equation, 2) > 7
-        % If this is not the first coefficient to be drawn, add sign
-        % symbols and spaces as a prelude
-        preamble = [' ', char(44-sign(coeff)), preamble];
-        coeff = abs(coeff);
+    if handles.chkPOI.Value
+        pois = POI(coeff(ii, 2:degree+1));
+        ca.ColorOrderIndex = mod(ii-1, 7)+1;
+        plot(pois(1,:), pois(2,:), 'o');
     end
-    if coeff ~= 0
-        % Do not draw coefficients of zero (0)
-        equation = [equation, sprintf(strcat(preamble, 'x'*(dd > 0), ['^', num2str(dd)]*(dd > 1)), coeff)];
+    sol = poly2sym(coeff(ii, 2:degree+1));
+    if handles.chkInt.Value
+        ints = zeros(2,1);
+        ints(2,1) = polyval(coeff(ii, 2:degree+1), 0);
+        if degree > 1 && any(coeff(ii, 2:degree) ~= 0)
+            x_int = double(vpasolve(sol == 0, ca.XLim));
+            ints = horzcat(ints, [x_int'; zeros(1, length(x_int))]);
+        end
+        for jj = 1:ii-1
+            if ii ~= jj
+                degree_jj = coeff(jj, 1);
+                x_int = double(vpasolve(sol == poly2sym(coeff(jj, 2:degree_jj+1)), ca.XLim));
+                ints = horzcat(ints, [x_int, polyval(coeff(jj, 2:degree_jj+1), x_int)]');
+            end
+        end
+        plot(ints(1,:), ints(2,:), 'ks')
     end
 end
-xlabel(handles.displayGraph, texlabel(equation));
+equation = char(vpa(sol, 3));
+if ~strcmp(equation, '0.0')
+    equation = [sprintf('f(x)_%d = ', size(coeff, 1)), equation];
+else
+    equation = '';
+end
+xlabel(ca, texlabel(equation));
 Z = handles.zoom(2);
 % Shift the axes labels in correspondance to the axes_shift
 ticks_x = [-Z:Z/4:Z] + round(handles.axes_shift(1)/Z*4)*Z/4;
 ticks_y = [-Z:Z/4:Z] + round(handles.axes_shift(2)/Z*4)*Z/4;
-set(handles.displayGraph, 'XMinorGrid', 'on', ...
-                          'YMinorGrid', 'on', ...
-                          'YGrid', 'on', ...
-                          'XGrid', 'on', ...
-                          'XMinorTick','on',...
-                          'YMinorTick','on',...
-                          'XTick', ticks_x, ...
-                          'XTickLabel', ticks_x,...
-                          'YTick', ticks_y,...
-                          'YTickLabel', ticks_y)
+set(ca, {'XTick', 'XTickLabel', 'YTick', 'YTickLabel'},...
+        { ticks_x, ticks_x,      ticks_y, ticks_y});
 hold off;
